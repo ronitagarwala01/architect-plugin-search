@@ -6,6 +6,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { exists } from './paths'
+import { join } from 'path'
+import { pathToFileURL } from 'url'
 import { launch } from './run.js'
 import type { LocalElasticSearch } from './run.js'
 import { populate } from './data.js'
@@ -59,6 +62,7 @@ export const deploy = {
 }
 
 let local: LocalElasticSearch
+const openSearchApiFile = 'openSearchApi.js'
 
 export const sandbox = {
   async start({
@@ -70,8 +74,30 @@ export const sandbox = {
     },
   }) {
     local = await launch({})
+
+    //Load api call file and run all api calls to cluster
+    const api_path = join(cwd, openSearchApiFile)
+    let result
+    if (await exists(api_path)) {
+      console.log(`Found ${openSearchApiFile} file, deploying ML model`)
+      result = (await import(pathToFileURL(api_path).toString())).default
+
+      //result should be a function that returns a promise
+      if (typeof result === 'function') {
+        result = result({ node: local.url })
+      }
+
+      //wait for the returned promise to resolve and thus all api calls to complete
+      if (result instanceof Promise) {
+        await result
+      }
+    } else {
+      console.log(`No ${openSearchApiFile} file found.`)
+    }
+
     await populate(cwd, { node: local.url })
   },
+
   async end() {
     await local.stop()
   },
