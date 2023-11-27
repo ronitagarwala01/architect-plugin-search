@@ -35,6 +35,8 @@ function toCollectionName(name: string) {
     .slice(0, 32)
 }
 
+const openSearchApiFile = 'openSearchApi.js'
+
 async function call_API(cwd: string) {
   //Load api call file and run all api calls to cluster
   const api_path = join(cwd, openSearchApiFile)
