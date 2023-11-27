@@ -20,6 +20,7 @@ import {
   cloudformationResources as serviceCloudformationResources,
   services as serviceServices,
 } from './service.js'
+import * as arc from '@architect/functions'
 
 /**
  * Convert a string to a suitable name for an OpenSearch Serverless collection.
@@ -33,6 +34,28 @@ function toCollectionName(name: string) {
     .replace(/[^a-z0-9-]/g, '')
     .padEnd(3, '-')
     .slice(0, 32)
+}
+
+async function call_API(cwd: string, node: string) {
+  //Load api call file and run all api calls to cluster
+  const api_path = join(cwd, openSearchApiFile)
+  let result
+  if (await exists(api_path)) {
+    console.log(`Found ${openSearchApiFile} file, deploying ML model`)
+    result = (await import(pathToFileURL(api_path).toString())).default
+
+    //result should be a function that returns a promise
+    if (typeof result === 'function') {
+      result = result({ node: node })
+    }
+
+    //wait for the returned promise to resolve and thus all api calls to complete
+    if (result instanceof Promise) {
+      await result
+    }
+  } else {
+    console.log(`No ${openSearchApiFile} file found.`)
+  }
 }
 
 export const deploy = {
@@ -59,6 +82,12 @@ export const deploy = {
       return serverlessServices
     }
   },
+  // @ts-expect-error: The Architect plugins API has no type definitions.
+  async end({ inventory }) {
+    const services = await arc.services()
+    const searchConfig = services['nasa_gcn-architect_plugin_search']
+    call_API(inventory.inv._project.cwd, searchConfig.node)
+  },
 }
 
 let local: LocalOpenSearch
@@ -74,27 +103,7 @@ export const sandbox = {
     },
   }) {
     local = await launch({})
-
-    //Load api call file and run all api calls to cluster
-    const api_path = join(cwd, openSearchApiFile)
-    let result
-    if (await exists(api_path)) {
-      console.log(`Found ${openSearchApiFile} file, deploying ML model`)
-      result = (await import(pathToFileURL(api_path).toString())).default
-
-      //result should be a function that returns a promise
-      if (typeof result === 'function') {
-        result = result({ node: local.url })
-      }
-
-      //wait for the returned promise to resolve and thus all api calls to complete
-      if (result instanceof Promise) {
-        await result
-      }
-    } else {
-      console.log(`No ${openSearchApiFile} file found.`)
-    }
-
+    await call_API(cwd, local.url)
     await populate(cwd, { node: local.url })
   },
 
