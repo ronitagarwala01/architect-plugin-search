@@ -90,7 +90,6 @@ export const deploy = {
 }
 
 let local: LocalOpenSearch
-const openSearchApiFile = 'openSearchApi.js'
 
 export const sandbox = {
   async start({
