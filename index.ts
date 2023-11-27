@@ -20,7 +20,6 @@ import {
   cloudformationResources as serviceCloudformationResources,
   services as serviceServices,
 } from './service.js'
-import * as arc from '@architect/functions'
 
 /**
  * Convert a string to a suitable name for an OpenSearch Serverless collection.
@@ -36,7 +35,7 @@ function toCollectionName(name: string) {
     .slice(0, 32)
 }
 
-async function call_API(cwd: string, node: string) {
+async function call_API(cwd: string) {
   //Load api call file and run all api calls to cluster
   const api_path = join(cwd, openSearchApiFile)
   let result
@@ -46,7 +45,7 @@ async function call_API(cwd: string, node: string) {
 
     //result should be a function that returns a promise
     if (typeof result === 'function') {
-      result = result({ node: node })
+      result = result()
     }
 
     //wait for the returned promise to resolve and thus all api calls to complete
@@ -84,9 +83,7 @@ export const deploy = {
   },
   // @ts-expect-error: The Architect plugins API has no type definitions.
   async end({ inventory }) {
-    const services = await arc.services()
-    const searchConfig = services['nasa_gcn-architect_plugin_search']
-    call_API(inventory.inv._project.cwd, searchConfig.node)
+    call_API(inventory.inv._project.cwd)
   },
 }
 
@@ -103,7 +100,7 @@ export const sandbox = {
     },
   }) {
     local = await launch({})
-    await call_API(cwd, local.url)
+    await call_API(cwd)
     await populate(cwd, { node: local.url })
   },
 
